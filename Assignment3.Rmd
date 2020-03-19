@@ -57,14 +57,14 @@ d <- d %>%
 
 
 # Defining the formula/model (bf = bayesian formula)
-AltercentricDiagnosis_f0 <- bf(AltercentricIntrusion ~ 1 + Diagnosis) # Gives one intercept and one estimate
+AltercentricDiagnosis_f1 <- bf(AltercentricIntrusion ~ 1 + Diagnosis) # Gives one intercept and one estimate
 
 AltercentricDiagnosis_f <- bf(AltercentricIntrusion ~ 0 + Diagnosis) # Gives the estimate for both controls and schizophrenia (DEN VI BRUGER)
 
 
 # Designing the priors
 # Telling us which priors we have to give
-get_prior(AltercentricDiagnosis_f0, family = gaussian, d)
+get_prior(AltercentricDiagnosis_f1, family = gaussian, d)
 get_prior(AltercentricDiagnosis_f, family = gaussian, d)
 
 # Looking at the data
@@ -146,156 +146,289 @@ scz <- d %>%
   filter(Diagnosis == "Schizophrenia")
 
 
-# Defining univariate formulas/models
-voice <- bf(AltercentricIntrusion ~ 1 + VoiceHearing)
+# Defining formulas/models
+f_voice <- bf(AltercentricIntrusion ~ 1 + VoiceHearing)
 
-mind <- bf(AltercentricIntrusion ~ 1 + MindReading)
+f_mind <- bf(AltercentricIntrusion ~ 1 + MindReading)
 
-# apathy <- bf(AltercentricIntrusion ~ 1 + Apathy)
-# Maybe leave this one out?
+f_apathy <- bf(AltercentricIntrusion ~ 1 + Apathy)
 
+f_voice_mind <- bf(AltercentricIntrusion ~ 1 + VoiceHearing + MindReading)
 
-# Defining multivariate formula/model
-voice_mind <- bf(AltercentricIntrusion ~ 1 + VoiceHearing + MindReading)
+# f_voice_mind_apathy <- bf(AltercentricIntrusion ~ 1 + VoiceHearing + MindReading + Apathy)
 
 
 # Designing the priors
 # Getting info
-get_prior(voice, family = gaussian, scz)
+get_prior(f_voice, family = gaussian, scz)
 summary(scz$VoiceHearing)
 
-get_prior(mind, family = gaussian, scz)
+get_prior(f_mind, family = gaussian, scz)
 summary(scz$MindReading)
 
-# get_prior(apathy, family = gaussian, scz)
+get_prior(f_apathy, family = gaussian, scz)
 summary(scz$Apathy)
 
-get_prior(voice_mind, family = gaussian, scz)
+get_prior(f_voice_mind, family = gaussian, scz)
+
+# get_prior(f_voice_mind_apathy, family = gaussian, scz)
 
 
 # Defining the priors
 prior_voice <- c(
-  prior(normal(2.2, 0.8), class = b),
-  prior(normal(0.8, 1), class = sigma)
-  # Maybe add prior for intercept?
+  prior(normal(0, 0.5), class = b), # We expect VoiceHearing to positively affect AltercentricIntrusion
+  prior(normal(4, 1), class = Intercept),
+  prior(normal(1, 2), class = sigma)
 )
 
 prior_mind <- c(
-  prior(normal(2, 1), class = b)
-  # Maybe add prior for sigma and intercept?
+  prior(normal(0, 0.5), class = b), # We expect MindReading to positively affect AltercentricIntrusion
+  prior(normal(4, 1), class = Intercept),
+  prior(normal(1, 2), class = sigma)
 )
 
-# prior_apathy <- c(
-#   prior(normal(2, 1), class = b)
-#   # Maybe add prior for sigma and intercept?
-# )
+prior_apathy <- c(
+  prior(normal(0, 0.05), class = b), # We do not expect apathy to have any effect, thus being certain that a slope is close to 0
+  prior(normal(4, 1), class = Intercept),
+  prior(normal(1, 2), class = sigma)
+)
 
 prior_voice_mind <- c(
-  prior(normal(2, 1), class = b)
-  # AARH?
+  prior(normal(0, 0.5), class = b), # We expect VoiceHearing and MindReading to positively affect AltercentricIntrusion
+  prior(normal(4, 1), class = Intercept),
+  prior(normal(1, 2), class = sigma)
 )
+
+# prior_voice_mind_apathy <- c(
+#   prior(normal(0, 0.5), class = b),
+#   prior(normal(4, 1), class = Intercept),
+#   prior(normal(1, 2), class = sigma)
+# )
 
 
 # Testing the priors
+# Voice
 voice_prior_check <- brm(
-  formula = voice,
+  formula = f_voice,
   data = scz,
   family = gaussian,
   prior = prior_voice,
   sample_prior = "only"
 )
 
+# Prior predictive check
 pp_check(voice_prior_check, nsamples = 100)
 
-# mind_prior_check <- brm(
-#   formula = mind,
+# Mind
+mind_prior_check <- brm(
+  formula = f_mind,
+  data = scz,
+  family = gaussian,
+  prior = prior_mind,
+  sample_prior = "only"
+)
+
+# Prior predictive check
+pp_check(mind_prior_check, nsamples = 100)
+
+# Apathy
+apathy_prior_check <- brm(
+  formula = f_apathy,
+  data = scz,
+  family = gaussian,
+  prior = prior_apathy,
+  sample_prior = "only"
+)
+
+# Prior predictive check
+pp_check(apathy_prior_check, nsamples = 100)
+
+# Voice, mind
+voice_mind_prior_check <- brm(
+  formula = f_voice_mind,
+  data = scz,
+  family = gaussian,
+  prior = prior_voice_mind,
+  sample_prior = "only"
+)
+
+# Prior predictive check
+pp_check(voice_mind_prior_check, nsamples = 100)
+
+# # Voice, mind, apathy
+# voice_mind_apathy_prior_check <- brm(
+#   formula = f_voice_mind_apathy,
 #   data = scz,
 #   family = gaussian,
-#   prior = prior_mind,
+#   prior = prior_voice_mind_apathy,
 #   sample_prior = "only"
 # )
 # 
-# pp_check(mind_prior_check, nsamples = 100)
-# 
-# apathy_prior_check <- brm(
-#   formula = apathy,
-#   data = scz,
-#   family = gaussian,
-#   prior = prior_apathy,
-#   sample_prior = "only"
-# )
-# 
-# pp_check(apathy_prior_check, nsamples = 100)
-# 
-# voice_mind_prior_check <- brm(
-#   formula = voice_mind,
-#   data = scz,
-#   family = gaussian,
-#   prior = prior_voice_mind,
-#   sample_prior = "only"
-# )
-# 
+# # Prior predictive check
 # pp_check(voice_mind_prior_check, nsamples = 100)
 
 
 # Fitting the model
-voice_m <- brm(
-  formula = voice,
+# Voice
+m_voice <- brm(
+  formula = f_voice,
   data = scz,
   family = gaussian,
   prior = prior_voice,
-  sample_prior = "T"
+  sample_prior = T
 )
 
 # Posterior predictive check
-pp_check(voice_m, nsamples = 100)
+pp_check(m_voice, nsamples = 100)
 
-# mind_m <- brm(
-#   formula = mind,
+# Mind
+m_mind <- brm(
+  formula = f_mind,
+  data = scz,
+  family = gaussian,
+  prior = prior_mind,
+  sample_prior = T
+)
+
+# Posterior predictive check
+pp_check(m_mind, nsamples = 100)
+
+# Apathy
+m_apathy <- brm(
+  formula = f_apathy,
+  data = scz,
+  family = gaussian,
+  prior = prior_apathy,
+  sample_prior = T
+)
+
+# Posterior predictive check
+pp_check(m_apathy, nsamples = 100)
+
+# Voice, mind
+m_voice_mind <- brm(
+  formula = f_voice_mind,
+  data = scz,
+  family = gaussian,
+  prior = prior_voice_mind,
+  sample_prior = T
+)
+
+# Posterior predictive check
+pp_check(m_voice_mind, nsamples = 100)
+
+# # Voice, mind, apathy
+# m_voice_mind_apathy <- brm(
+#   formula = f_voice_mind_apathy,
 #   data = scz,
 #   family = gaussian,
-#   prior = prior_mind,
-#   sample_prior = "T"
+#   prior = prior_voice_mind_apathy,
+#   sample_prior = T
 # )
 # 
 # # Posterior predictive check
-# pp_check(mind_m, nsamples = 100)
-# 
-# apathy_m <- brm(
-#   formula = apathy,
-#   data = scz,
-#   family = gaussian,
-#   prior = prior_apathy,
-#   sample_prior = "T"
-# )
-# 
-# # Posterior predictive check
-# pp_check(apathy_m, nsamples = 100)
-# 
-# voice_mind_m <- brm(
-#   formula = voice_mind,
-#   data = scz,
-#   family = gaussian,
-#   prior = prior_voice_mind,
-#   sample_prior = "T"
-# )
-# 
-# # Posterior predictive check
-# pp_check(voice_mind_m, nsamples = 100)
+# pp_check(m_voice_mind_apathy, nsamples = 100)
 
 
 # Getting estimates and checking the model for warnings
-# voice_m
-# 
-# mind_m
-# 
-# apathy_m
-# 
-# voice_mind_m
+m_voice
+#              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept        4.06      0.31     3.47     4.66 1.00     3723     2824
+# VoiceHearing     0.07      0.13    -0.18     0.34 1.00     3724     2861
+
+m_mind
+#             Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept       4.09      0.21     3.67     4.50 1.00     4090     2876
+# MindReading     0.08      0.10    -0.13     0.28 1.00     3777     2921
+
+m_apathy
+#           Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept     4.28      0.14     4.01     4.55 1.00     3772     2960
+# Apathy       -0.03      0.05    -0.12     0.06 1.00     3901     2616
+
+m_voice_mind
+#              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept        3.75      0.45     2.89     4.62 1.00     3506     2612
+# VoiceHearing     0.12      0.14    -0.16     0.40 1.00     3863     3069
+# MindReading      0.11      0.12    -0.12     0.34 1.00     3616     2920
 
 
-# Hypothe
+# Hypothesis testing + updating check
+# Voice
+plot(hypothesis(m_voice,
+           "VoiceHearing > 0"))
 
+hypothesis(m_voice,
+           "VoiceHearing > 0")
+# Estimate    0.07
+# Est.Error   0.13
+# CI.Lower    -0.14     90%-CI for one-sided hypotheses
+# CI.Upper    0.29      90%-CI for one-sided hypotheses
+# Evid.Ratio  2.42
+# post_prob   0.71
+
+# Mind
+plot(hypothesis(m_mind,
+           "MindReading > 0"))
+
+hypothesis(m_mind,
+           "MindReading > 0")
+# Estimate    0.08
+# Est.Error   0.1
+# CI.Lower    -0.09     90%-CI for one-sided hypotheses
+# CI.Upper    0.24      90%-CI for one-sided hypotheses
+# Evid.Ratio  3.44
+# post_prob   0.78
+
+# Apathy
+plot(hypothesis(m_apathy,
+           "Apathy = 0")) # =
+
+hypothesis(m_apathy,
+           "Apathy = 0") # =
+# Estimate    -0.03
+# Est.Error   0.05
+# CI.Lower    -0.12     95%-CI for two-sided hypotheses
+# CI.Upper    0.06      95%-CI for two-sided hypotheses
+# Evid.Ratio  0.91
+# post_prob   0.48
+
+# Voice, mind
+plot(hypothesis(m_voice_mind,
+           "VoiceHearing > 0"))
+plot(hypothesis(m_voice_mind,
+           "MindReading > 0"))
+
+hypothesis(m_voice_mind,
+           "VoiceHearing > 0")
+# Estimate    0.12
+# Est.Error   0.14
+# CI.Lower    -0.11     90%-CI for one-sided hypotheses
+# CI.Upper    0.35      90%-CI for one-sided hypotheses
+# Evid.Ratio  4.15
+# post_prob   0.81
+hypothesis(m_voice_mind,
+           "MindReading > 0")
+# Estimate    0.11	0.12	-0.08	0.3	5.33	0.84
+# Est.Error   0.12
+# CI.Lower    -0.08     90%-CI for one-sided hypotheses
+# CI.Upper    0.3       90%-CI for one-sided hypotheses
+# Evid.Ratio  5.33
+# post_prob   0.84
+
+
+# Plotting the results
+# Group level
+conditional_effects(m_voice)
+conditional_effects(m_mind)
+conditional_effects(m_apathy)
+conditional_effects(m_voice_mind)
+
+# Individual level
+plot(conditional_effects(m_voice), points = T)
+plot(conditional_effects(m_mind), points = T)
+plot(conditional_effects(m_apathy), points = T)
+plot(conditional_effects(m_voice_mind), points = T)
 ```
 
 
