@@ -42,7 +42,6 @@ pacman::p_load(tidyverse, brms)
 # Preparing the data
 d <- read_csv("Ass3.csv")
 
-summary(d)
 
 # Diagnosis in words (control/schizophrenia) instead of factor (0/1)
 d$Diagnosis <- plyr::revalue(as.character(d$Diagnosis), 
@@ -57,14 +56,14 @@ d <- d %>%
 
 
 # Defining the formula/model (bf = bayesian formula)
-AltercentricDiagnosis_f1 <- bf(AltercentricIntrusion ~ 1 + Diagnosis) # Gives one intercept and one estimate
+# AltercentricDiagnosis_f1 <- bf(AltercentricIntrusion ~ 1 + Diagnosis) # Gives one intercept and one estimate
 
 AltercentricDiagnosis_f <- bf(AltercentricIntrusion ~ 0 + Diagnosis) # Gives the estimate for both controls and schizophrenia (DEN VI BRUGER)
 
 
 # Designing the priors
 # Telling us which priors we have to give
-get_prior(AltercentricDiagnosis_f1, family = gaussian, d)
+# get_prior(AltercentricDiagnosis_f1, family = gaussian, d)
 get_prior(AltercentricDiagnosis_f, family = gaussian, d)
 
 # Looking at the data
@@ -83,7 +82,8 @@ AltercentricDiagnosis_PriorCheck_m <- brm(
   data = d,
   family = gaussian,
   prior = priorDiagnosis,
-  sample_prior = "only" # We sample the prior because we want to test the prior
+  sample_prior = "only", # We sample the prior because we want to test the prior
+  file = "AI_from_Diagnosis_prior"
 )
 
 # Prior predictive check
@@ -97,7 +97,8 @@ AltercentricDiagnosis_m <- brm(
   data = d,
   family = gaussian,
   prior = priorDiagnosis,
-  sample_prior = T # To set up the actual model
+  sample_prior = T, # To set up the actual model
+  file = "AI_from_Diagnosis_fit"
 )
 
 
@@ -107,6 +108,9 @@ pp_check(AltercentricDiagnosis_m, nsamples = 100)
 
 ## Checking the model for warnings (and getting estimates)
 AltercentricDiagnosis_m
+#                        Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS
+# DiagnosisControls          3.86      0.06     3.74     3.98 1.00     3787
+# DiagnosisSchizophrenia     4.23      0.10     4.03     4.42 1.00     3745
 
 
 # Hypothesis testing + updating check
@@ -146,6 +150,16 @@ scz <- d %>%
   filter(Diagnosis == "Schizophrenia")
 
 
+# Scaling the variables (to avoid heavy correlations between slope and intercept)
+scz <- scz %>%
+  mutate(
+    AltercentricIntrusion = scale(AltercentricIntrusion),
+    VoiceHearing = scale(VoiceHearing),
+    MindReading = scale(MindReading),
+    Apathy = scale(Apathy)
+  )
+
+
 # Defining formulas/models
 f_voice <- bf(AltercentricIntrusion ~ 1 + VoiceHearing)
 
@@ -154,8 +168,6 @@ f_mind <- bf(AltercentricIntrusion ~ 1 + MindReading)
 f_apathy <- bf(AltercentricIntrusion ~ 1 + Apathy)
 
 f_voice_mind <- bf(AltercentricIntrusion ~ 1 + VoiceHearing + MindReading)
-
-# f_voice_mind_apathy <- bf(AltercentricIntrusion ~ 1 + VoiceHearing + MindReading + Apathy)
 
 
 # Designing the priors
@@ -171,39 +183,31 @@ summary(scz$Apathy)
 
 get_prior(f_voice_mind, family = gaussian, scz)
 
-# get_prior(f_voice_mind_apathy, family = gaussian, scz)
-
 
 # Defining the priors
 prior_voice <- c(
-  prior(normal(0, 0.5), class = b), # We expect VoiceHearing to positively affect AltercentricIntrusion
-  prior(normal(4, 1), class = Intercept),
+  prior(normal(0, 1), class = Intercept),
+  prior(normal(0, 0.5), class = b),
   prior(normal(1, 2), class = sigma)
 )
 
 prior_mind <- c(
-  prior(normal(0, 0.5), class = b), # We expect MindReading to positively affect AltercentricIntrusion
-  prior(normal(4, 1), class = Intercept),
+  prior(normal(0, 1), class = Intercept),
+  prior(normal(0, 0.5), class = b),
   prior(normal(1, 2), class = sigma)
 )
 
 prior_apathy <- c(
-  prior(normal(0, 0.05), class = b), # We do not expect apathy to have any effect, thus being certain that a slope is close to 0
-  prior(normal(4, 1), class = Intercept),
+  prior(normal(0, 1), class = Intercept),
+  prior(normal(0, 0.5), class = b), # We do not expect apathy to have any effect, thus being certain that a slope is close to 0
   prior(normal(1, 2), class = sigma)
 )
 
 prior_voice_mind <- c(
-  prior(normal(0, 0.5), class = b), # We expect VoiceHearing and MindReading to positively affect AltercentricIntrusion
-  prior(normal(4, 1), class = Intercept),
+  prior(normal(0, 1), class = Intercept),
+  prior(normal(0, 0.5), class = b),
   prior(normal(1, 2), class = sigma)
 )
-
-# prior_voice_mind_apathy <- c(
-#   prior(normal(0, 0.5), class = b),
-#   prior(normal(4, 1), class = Intercept),
-#   prior(normal(1, 2), class = sigma)
-# )
 
 
 # Testing the priors
@@ -213,7 +217,8 @@ voice_prior_check <- brm(
   data = scz,
   family = gaussian,
   prior = prior_voice,
-  sample_prior = "only"
+  sample_prior = "only",
+  file = "AI_from_VH_prior"
 )
 
 # Prior predictive check
@@ -225,7 +230,8 @@ mind_prior_check <- brm(
   data = scz,
   family = gaussian,
   prior = prior_mind,
-  sample_prior = "only"
+  sample_prior = "only",
+  file = "AI_from_MR_prior"
 )
 
 # Prior predictive check
@@ -237,7 +243,8 @@ apathy_prior_check <- brm(
   data = scz,
   family = gaussian,
   prior = prior_apathy,
-  sample_prior = "only"
+  sample_prior = "only",
+  file = "AI_from_A_prior"
 )
 
 # Prior predictive check
@@ -249,23 +256,12 @@ voice_mind_prior_check <- brm(
   data = scz,
   family = gaussian,
   prior = prior_voice_mind,
-  sample_prior = "only"
+  sample_prior = "only",
+  file = "AI_from_VH_MR_prior"
 )
 
 # Prior predictive check
 pp_check(voice_mind_prior_check, nsamples = 100)
-
-# # Voice, mind, apathy
-# voice_mind_apathy_prior_check <- brm(
-#   formula = f_voice_mind_apathy,
-#   data = scz,
-#   family = gaussian,
-#   prior = prior_voice_mind_apathy,
-#   sample_prior = "only"
-# )
-# 
-# # Prior predictive check
-# pp_check(voice_mind_prior_check, nsamples = 100)
 
 
 # Fitting the model
@@ -275,7 +271,8 @@ m_voice <- brm(
   data = scz,
   family = gaussian,
   prior = prior_voice,
-  sample_prior = T
+  sample_prior = T,
+  file = "AI_from_VH_fit"
 )
 
 # Posterior predictive check
@@ -287,7 +284,8 @@ m_mind <- brm(
   data = scz,
   family = gaussian,
   prior = prior_mind,
-  sample_prior = T
+  sample_prior = T,
+  file = "AI_from_MR_fit"
 )
 
 # Posterior predictive check
@@ -299,7 +297,8 @@ m_apathy <- brm(
   data = scz,
   family = gaussian,
   prior = prior_apathy,
-  sample_prior = T
+  sample_prior = T,
+  file = "AI_from_A_fit"
 )
 
 # Posterior predictive check
@@ -311,7 +310,8 @@ m_voice_mind <- brm(
   data = scz,
   family = gaussian,
   prior = prior_voice_mind,
-  sample_prior = T
+  sample_prior = T,
+  file = "AI_from_VH_MR_fit"
 )
 
 # Posterior predictive check
@@ -335,22 +335,39 @@ m_voice
 #              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # Intercept        4.06      0.31     3.47     4.66 1.00     3723     2824
 # VoiceHearing     0.07      0.13    -0.18     0.34 1.00     3724     2861
+# - - - - - - - - - - - NEW ESTIMATES AFTER SCALING - - - - - - - - - - -
+#              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept       -0.00      0.12    -0.24     0.23 1.00     4022     2916
+# VoiceHearing     0.06      0.12    -0.16     0.30 1.00     3763     2913
 
 m_mind
 #             Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # Intercept       4.09      0.21     3.67     4.50 1.00     4090     2876
 # MindReading     0.08      0.10    -0.13     0.28 1.00     3777     2921
+# - - - - - - - - - - - NEW ESTIMATES AFTER SCALING - - - - - - - - - - -
+#             Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept       0.00      0.12    -0.23     0.24 1.00     3244     2342
+# MindReading     0.08      0.12    -0.15     0.31 1.00     3591     2598
 
 m_apathy
 #           Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # Intercept     4.28      0.14     4.01     4.55 1.00     3772     2960
 # Apathy       -0.03      0.05    -0.12     0.06 1.00     3901     2616
+# - - - - - - - - - - - NEW ESTIMATES AFTER SCALING - - - - - - - - - - -
+#           Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept    -0.00      0.12    -0.22     0.24 1.00     3468     2555
+# Apathy       -0.18      0.11    -0.40     0.04 1.00     3245     2689
 
 m_voice_mind
 #              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
 # Intercept        3.75      0.45     2.89     4.62 1.00     3506     2612
 # VoiceHearing     0.12      0.14    -0.16     0.40 1.00     3863     3069
 # MindReading      0.11      0.12    -0.12     0.34 1.00     3616     2920
+# - - - - - - - - - - - NEW ESTIMATES AFTER SCALING - - - - - - - - - - -
+#              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept       -0.00      0.12    -0.23     0.23 1.00     3988     2968
+# VoiceHearing     0.11      0.12    -0.14     0.35 1.00     4138     3336
+# MindReading      0.12      0.12    -0.13     0.36 1.00     3825     2777
 
 
 # Hypothesis testing + updating check
@@ -360,12 +377,14 @@ plot(hypothesis(m_voice,
 
 hypothesis(m_voice,
            "VoiceHearing > 0")
-# Estimate    0.07
-# Est.Error   0.13
-# CI.Lower    -0.14     90%-CI for one-sided hypotheses
-# CI.Upper    0.29      90%-CI for one-sided hypotheses
-# Evid.Ratio  2.42
-# post_prob   0.71
+#             SCALED      NOT SCALED
+# Estimate    0.06        0.07
+# Est.Error   0.12        0.13
+# CI.Lower    -0.13       -0.14     90%-CI for one-sided hypotheses
+# CI.Upper    0.26        0.29      90%-CI for one-sided hypotheses
+# Evid.Ratio  2.5         2.42      compatible with hypothesis divided by not compatible with hypothesis. Better than 1 (more for than against, but not really persuasive - 2.42 times more samples are compatible compared to incompatible)
+# post_prob   0.71        0.71
+
 
 # Mind
 plot(hypothesis(m_mind,
@@ -373,12 +392,14 @@ plot(hypothesis(m_mind,
 
 hypothesis(m_mind,
            "MindReading > 0")
-# Estimate    0.08
-# Est.Error   0.1
-# CI.Lower    -0.09     90%-CI for one-sided hypotheses
-# CI.Upper    0.24      90%-CI for one-sided hypotheses
-# Evid.Ratio  3.44
-# post_prob   0.78
+#             SCALED      NOT SCALED
+# Estimate    0.08        0.08
+# Est.Error   0.12        0.1
+# CI.Lower    -0.1        -0.09     90%-CI for one-sided hypotheses
+# CI.Upper    0.28        0.24      90%-CI for one-sided hypotheses
+# Evid.Ratio  3.44        3.44
+# post_prob   0.77        0.78
+
 
 # Apathy
 plot(hypothesis(m_apathy,
@@ -386,12 +407,14 @@ plot(hypothesis(m_apathy,
 
 hypothesis(m_apathy,
            "Apathy = 0") # =
-# Estimate    -0.03
-# Est.Error   0.05
-# CI.Lower    -0.12     95%-CI for two-sided hypotheses
-# CI.Upper    0.06      95%-CI for two-sided hypotheses
-# Evid.Ratio  0.91
-# post_prob   0.48
+#             SCALED      NOT SCALED
+# Estimate    -0.18       -0.03
+# Est.Error   0.11        0.05
+# CI.Lower    -0.40       -0.12     95%-CI for two-sided hypotheses
+# CI.Upper    0.04        0.06      95%-CI for two-sided hypotheses
+# Evid.Ratio  1.35        0.91
+# post_prob   0.57        0.48
+
 
 # Voice, mind
 plot(hypothesis(m_voice_mind,
@@ -401,20 +424,23 @@ plot(hypothesis(m_voice_mind,
 
 hypothesis(m_voice_mind,
            "VoiceHearing > 0")
-# Estimate    0.12
-# Est.Error   0.14
-# CI.Lower    -0.11     90%-CI for one-sided hypotheses
-# CI.Upper    0.35      90%-CI for one-sided hypotheses
-# Evid.Ratio  4.15
-# post_prob   0.81
+#             SCALED      NOT SCALED
+# Estimate    0.11        0.12
+# Est.Error   0.12        0.14
+# CI.Lower    -0.10       -0.11     90%-CI for one-sided hypotheses
+# CI.Upper    0.31        0.35      90%-CI for one-sided hypotheses
+# Evid.Ratio  4.04        4.15
+# post_prob   0.80        0.81
+
 hypothesis(m_voice_mind,
            "MindReading > 0")
-# Estimate    0.11	0.12	-0.08	0.3	5.33	0.84
-# Est.Error   0.12
-# CI.Lower    -0.08     90%-CI for one-sided hypotheses
-# CI.Upper    0.3       90%-CI for one-sided hypotheses
-# Evid.Ratio  5.33
-# post_prob   0.84
+#             SCALED      NOT SCALED
+# Estimate    0.12        0.11
+# Est.Error   0.12        0.12
+# CI.Lower    -0.09       -0.08     90%-CI for one-sided hypotheses
+# CI.Upper    0.32        0.3       90%-CI for one-sided hypotheses
+# Evid.Ratio  5.14        5.33
+# post_prob   0.84        0.84
 
 
 # Plotting the results
@@ -430,6 +456,28 @@ plot(conditional_effects(m_mind), points = T)
 plot(conditional_effects(m_apathy), points = T)
 plot(conditional_effects(m_voice_mind), points = T)
 ```
+```{r}
+# Being fancy and doing model comparison (using loo because it is more robust)
+m_voice <- add_criterion(m_voice, criterion = "loo")
+m_mind <- add_criterion(m_mind, criterion = "loo")
+m_apathy <- add_criterion(m_apathy, criterion = "loo")
+m_voice_mind <- add_criterion(m_voice_mind, criterion = "loo")
+
+# Comparing the values
+loo_compare(m_voice,
+            m_mind,
+            m_apathy,
+            m_voice_mind)
+# Which is estimated to have the lowest prediction error? RF's (and ours as well):
+# The model with apathy, followed by MR, followed by VH, followed by MR and VH followed by the one with all three (we did not make this). Apathy thus seems to be the best model.
+
+# Model weighting (assuming one of these models is the true model)
+loo_model_weights(m_voice,
+            m_mind,
+            m_apathy,
+            m_voice_mind)
+# RF (and ours): says apathy as the right one, if these are the possible models. But mabe we do not have the true model (next question). So for now, apathy is the one, we should bet all our money on.
+```
 
 
 ## Second part
@@ -437,6 +485,207 @@ plot(conditional_effects(m_voice_mind), points = T)
 Q2.1) However, we know that the diagnosis is based on symptom assessment: if the overall sum of symptoms is severe enough, the participant gets a diagnosis. In other words, by selecting the patients, and including the symptoms in the model we might have inadvertently introduced an issue in our inference. Do try to draw a causal graph (Directed Acyclical Graph) of the variables and compare it with the types of causal graphs presented in the slides. Discuss which biases you might have introduced.
 
 Q2.2.) Redesign your analysis following the graph and report how the results change
+```{r}
+# Scaling the variables (to avoid heavy correlations between slope and intercept)
+d <- d %>%
+  mutate(
+    AltercentricIntrusion = scale(AltercentricIntrusion),
+    VoiceHearing = scale(VoiceHearing),
+    MindReading = scale(MindReading),
+    Apathy = scale(Apathy)
+  )
+
+# Using formulas/models and defined priors from earlier
+
+
+# Testing the priors
+# Voice
+d_voice_prior_check <- brm(
+  formula = f_voice,
+  data = d,
+  family = gaussian,
+  prior = prior_voice,
+  sample_prior = "only",
+  file = "d_AI_from_VH_prior"
+)
+
+# Prior predictive check
+pp_check(d_voice_prior_check, nsamples = 100)
+
+# Mind
+d_mind_prior_check <- brm(
+  formula = f_mind,
+  data = d,
+  family = gaussian,
+  prior = prior_mind,
+  sample_prior = "only",
+  file = "d_AI_from_MR_prior"
+)
+
+# Prior predictive check
+pp_check(d_mind_prior_check, nsamples = 100)
+
+
+# Voice, mind
+d_voice_mind_prior_check <- brm(
+  formula = f_voice_mind,
+  data = d,
+  family = gaussian,
+  prior = prior_voice_mind,
+  sample_prior = "only",
+  file = "d_AI_from_VH_MR_prior"
+)
+
+# Prior predictive check
+pp_check(d_voice_mind_prior_check, nsamples = 100)
+
+
+# Fitting the model
+# Voice
+m_d_voice <- brm(
+  formula = f_voice,
+  data = d,
+  family = gaussian,
+  prior = prior_voice,
+  sample_prior = T,
+  file = "d_AI_from_VH_fit"
+)
+
+# Posterior predictive check
+pp_check(m_d_voice, nsamples = 100)
+
+# Mind
+m_d_mind <- brm(
+  formula = f_mind,
+  data = d,
+  family = gaussian,
+  prior = prior_mind,
+  sample_prior = T,
+  file = "d_AI_from_MR_fit"
+)
+
+# Posterior predictive check
+pp_check(m_d_mind, nsamples = 100)
+
+
+# Voice, mind
+m_d_voice_mind <- brm(
+  formula = f_voice_mind,
+  data = d,
+  family = gaussian,
+  prior = prior_voice_mind,
+  sample_prior = T,
+  file = "d_AI_from_VH_MR_fit"
+)
+
+# Posterior predictive check
+pp_check(m_d_voice_mind, nsamples = 100)
+
+
+# Getting estimates and checking the model for warnings
+m_d_voice
+#              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept        0.00      0.06    -0.11     0.11 1.00     3712     2693
+# VoiceHearing     0.19      0.06     0.08     0.30 1.00     4065     3312
+
+m_d_mind
+#             Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept       0.00      0.06    -0.11     0.11 1.00     4024     2791
+# MindReading     0.19      0.06     0.08     0.30 1.00     3978     2817
+
+m_d_voice_mind
+#              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+# Intercept       -0.00      0.06    -0.11     0.11 1.00     4268     3009
+# VoiceHearing     0.17      0.06     0.06     0.28 1.00     4275     3082
+# MindReading      0.17      0.06     0.05     0.28 1.00     4041     3230
+
+
+# Hypothesis testing + updating check
+# Voice
+plot(hypothesis(m_d_voice,
+           "VoiceHearing > 0"))
+
+hypothesis(m_d_voice,
+           "VoiceHearing > 0")
+# Estimate    0.19
+# Est.Error   0.06
+# CI.Lower    0.10    90%-CI for one-sided hypotheses
+# CI.Upper    0.28    90%-CI for one-sided hypotheses
+# Evid.Ratio  3999    Compatible with hypothesis divided by not compatible with hypothesis. - 3999 times more samples are compatible compared to incompatible)
+# post_prob   1
+
+
+# Mind
+plot(hypothesis(m_d_mind,
+           "MindReading > 0"))
+
+hypothesis(m_d_mind,
+           "MindReading > 0")
+# Estimate    0.19
+# Est.Error   0.06
+# CI.Lower    0.10    90%-CI for one-sided hypotheses
+# CI.Upper    0.28    90%-CI for one-sided hypotheses
+# Evid.Ratio  3999
+# post_prob   1
+
+
+# Voice, mind
+plot(hypothesis(m_d_voice_mind,
+           "VoiceHearing > 0"))
+plot(hypothesis(m_d_voice_mind,
+           "MindReading > 0"))
+
+hypothesis(m_d_voice_mind,
+           "VoiceHearing > 0")
+# Estimate    0.17
+# Est.Error   0.06
+# CI.Lower    0.07    90%-CI for one-sided hypotheses
+# CI.Upper    0.26    90%-CI for one-sided hypotheses
+# Evid.Ratio  665.67
+# post_prob   1
+
+hypothesis(m_d_voice_mind,
+           "MindReading > 0")
+# Estimate    0.17
+# Est.Error   0.06
+# CI.Lower    0.07    90%-CI for one-sided hypotheses
+# CI.Upper    0.26    90%-CI for one-sided hypotheses
+# Evid.Ratio  1999
+# post_prob   1
+
+# Plotting the results
+# Group level
+conditional_effects(m_d_voice)
+conditional_effects(m_d_mind)
+conditional_effects(m_d_apathy)
+conditional_effects(m_d_voice_mind)
+
+# Individual level
+plot(conditional_effects(m_d_voice), points = T)
+plot(conditional_effects(m_d_mind), points = T)
+plot(conditional_effects(m_d_apathy), points = T)
+plot(conditional_effects(m_d_voice_mind), points = T)
+```
+```{r}
+# Being fancy and doing model comparison (using loo because it is more robust)
+m_d_voice <- add_criterion(m_d_voice, criterion = "loo")
+m_d_mind <- add_criterion(m_d_mind, criterion = "loo")
+m_d_voice_mind <- add_criterion(m_d_voice_mind, criterion = "loo")
+
+# Comparing the values
+loo_compare(m_d_voice,
+            m_d_mind,
+            m_d_voice_mind)
+# Which is estimated to have the lowest prediction error? RF's (and ours as well):
+# The model with VH + MR thus seems to be the best model.
+
+# Model weighting (assuming one of these models is the true model)
+loo_model_weights(m_d_voice,
+            m_d_mind,
+            m_d_voice_mind)
+# RF (and ours): says VH + MR as the right one, if these are the possible models.
+```
+
 
 
 ## Third part
@@ -444,6 +693,8 @@ Q2.2.) Redesign your analysis following the graph and report how the results cha
 These issues are very difficult to think through, and not knowing the causal mechanisms generating the data in advance makes our inferences even more unreliable. To explore these issues, I recommend using simulations. In other words, defining a "true" model, generating data from it and assessing what different analyses would lead you to infer (and therefore which biases they might introduce). You can find the code I used to simulate your data below.
 
 Q3.1) Look through the code and identify whether the results you have match the underlying truth. Discuss what you have learned.
+
+- Makes sense that our observed main effects of respectively VH and MR are about 0.2 (0.19) on AI, since they are simulated to be this. Moreover, it makes sense that the the main effects are a bit smaller as both VH and MR are included in the model, since the symptoms are simulated to correlate 0.2. This means they share variance, which is why the indidivual effects do not add act much extra info as when taken separately in the model predicting AI.
 
 Q3.2) OPTIONAL: is this a general pattern? Try varying the parameters (e.g. correlation values) and assess whether the new dataset(s) leads to the same biases in your analysis.
 
